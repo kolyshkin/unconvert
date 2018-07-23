@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"runtime/pprof"
 	"sort"
@@ -43,6 +44,7 @@ func apply(file string, edits editSet) {
 	}
 
 	fset := token.NewFileSet()
+	fmt.Printf("file: %q\n", file)
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 	if err != nil {
 		log.Fatal(err)
@@ -425,7 +427,13 @@ func (v *visitor) unconvert(call *ast.CallExpr) {
 		return
 	}
 
-	v.edits[v.file.Position(call.Lparen)] = struct{}{}
+	pos := v.file.Position(call.Lparen)
+	if !filepath.IsAbs(pos.Filename) { // go 1.11+, see https://github.com/golang/go/issues/26671
+		f := filepath.Base(pos.Filename)
+		d := filepath.Dir(v.file.Name())
+		pos.Filename = filepath.Join(d, f)
+	}
+	v.edits[pos] = struct{}{}
 }
 
 // isFloatingPointer reports whether t's underlying type is a floating
